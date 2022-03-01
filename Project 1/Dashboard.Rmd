@@ -1,0 +1,336 @@
+---
+title: "Pranav's Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    social: [ "twitter", "facebook", "menu"]
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(knitr)
+library(DT)
+library(rpivotTable)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(openintro)
+library(highcharter)
+library(ggvis)
+```
+
+
+```{r}
+data <- read.csv("/Users/pranavvinod/Downloads/airlinedata", header = T)
+```
+
+```{r}
+mycolors <- c("blue", "#FFC125", "darkgreen", "darkorange")
+```
+
+Interactive Data Visualization
+=====================================
+
+Row
+-------------------------------------
+
+### Airline Delay Analysis
+
+```{r}
+valueBox(paste("Delay"),
+         color = "warning")
+```
+
+### Total Arrival Delays in US(in mins)
+
+```{r}
+a<-data %>% 
+  summarise(Count = sum(ArrDelay, na.rm=TRUE))
+valueBox((a$Count),
+         icon = "fa-user")
+```
+
+### **Delay in mins**
+
+```{r}
+gauge(round(mean(data$ArrDelayMinutes, na.rm = TRUE),
+            digits = 2),
+            min = 0,
+            max = 60,
+            gaugeSectors(success = c(0, 5),
+                         warning = c(5, 15),
+                         danger = c(15, 60),
+                         colors = c("green", "yellow", "red")))
+```
+
+### Massachusetts (Arrival Delay in mins)
+
+```{r}
+b <- data %>% filter(OriginStateName=="Massachusetts") %>% 
+  summarise(Sum = sum(ArrDelay, na.rm=TRUE)) %>% 
+  arrange(desc(Sum))
+valueBox((b$Sum),
+         icon = 'fa-building')
+```
+
+### California (Arrival Delay in mins)
+
+```{r}
+b <- data %>% filter(OriginStateName=="California") %>% 
+  summarise(Sum = sum(ArrDelay, na.rm=TRUE)) %>% 
+  arrange(desc(Sum))
+valueBox((b$Sum),
+         icon = 'fa-building')
+```
+
+### Texas (Arrival Delay in mins)
+
+```{r}
+b <- data %>% filter(OriginStateName=="Texas") %>% 
+  summarise(Sum = sum(ArrDelay, na.rm=TRUE)) %>% 
+  arrange(desc(Sum))
+valueBox((b$Sum),
+         icon = 'fa-building')
+```
+
+### Florida (Arrival Delay in mins)
+
+```{r}
+b <- data %>% filter(OriginStateName=="Florida") %>% 
+  summarise(Sum = sum(ArrDelay, na.rm=TRUE)) %>% 
+  arrange(desc(Sum))
+valueBox((b$Sum),
+         icon = 'fa-building')
+```
+
+Row
+-------------------------------
+
+### Failures By State
+
+```{r}
+p1 <- data %>%
+         group_by(OriginStateName) %>%
+         summarise(count = n()) %>%
+         plot_ly(x = ~OriginStateName,
+                 y = ~count,
+                  color = "blue", 
+                  type = 'bar') %>% 
+ layout(xaxis = list(title = "Departure Delays By State"), 
+ yaxis = list(title = 'Count')) 
+ p1 
+``` 
+
+### Top States
+
+```{r}
+
+# g4 <- data %>% group_by(DestStateName) %>% 
+#   summarise(c = sum(ArrDelayMinutes, na.rm=TRUE)) %>% 
+#   arrange(desc(c))
+p2 <- data %>%
+         group_by(DestStateName) %>%
+         summarise(count = sum(ArrDelayMinutes, na.rm=TRUE)) %>%
+         filter(count>12000) %>%
+         plot_ly(labels = ~DestStateName,
+                 values = ~count,
+                 marker = list(colors = mycolors)) %>%
+         add_pie(hole = 0.2) %>%
+         layout(xaxis = list(zeroline = F,
+                             showline = F,
+                             showticklabels = F,
+                             showgrid = F),
+                yaxis = list(zeroline = F,
+                             showline = F,
+                             showticklabels=F,
+                             showgrid=F))
+p2
+```
+
+
+Row
+------------------------------------
+### Scatter Plot of Arrival Delay vs Departure Delay
+
+```{r}
+d <- data %>% filter(DepDelay >=0) %>%  
+   filter(ArrDelay >= 0) 
+p3 <- plot_ly(d, x=~DepDelay) %>%
+         add_markers(y =~ArrDelay,
+                     text = ~paste("Arrival Delay: ", ArrDelay),
+                     showlegend = F) %>%
+         add_lines(y = ~fitted(loess(ArrDelay ~ DepDelay)),
+                   name = "Loess Smoother",
+                   color = I("#FFC125"),
+                   showlegend = T,
+                   line = list(width=5)) %>%
+         layout(xaxis = list(title = "Departure Delay"),
+                yaxis = list(title = "Arrival Delay"))
+p3
+```
+
+### Box Plot of Top State
+
+```{r}
+# data %>%
+#          group_by(State) %>%
+#          ggvis(~State, ~lc, fill = ~State) %>%
+#          layer_boxplots()
+d1 <- data %>% group_by(DestStateName) %>% 
+  summarise(Count = n()) %>% 
+  arrange(desc(Count))
+d2 <- data %>% filter(DestStateName=="California"|DestStateName=="Texas"|DestStateName=="Illinois"|DestStateName=="Georgia"|DestStateName=="Florida")
+d1 <- d2 %>% filter(ArrDelay<100, na.rm=TRUE)
+
+#Transforming data to box plot data
+d1 <-data_to_boxplot(d1,ArrDelay, DestStateName, group_var = DestStateName)
+
+#Plotting
+highchart() %>% 
+  hc_xAxis(type="category") %>% 
+  hc_add_series_list(d1) %>% 
+  hc_title(text = "Arrival Delay in 5 Busiest Airports") %>% 
+  hc_yAxis(title = list(text="Arrival Delay(mins)"))
+  
+```
+
+Map
+========================================
+
+### Map
+
+```{r}
+states <- data %>% group_by(OriginStateName) %>% 
+  summarise(Mean = mean(DepDelay,na.rm = TRUE))
+
+highchart() %>% 
+  hc_add_series_map(usgeojson, states,
+                    name = "OriginStateName",
+                    value = "Mean",
+                    joinBy = c('woename', 'OriginStateName')) %>% #woename is where on earth name and joins
+ hc_mapNavigation(enabled = T) %>% 
+  hc_title(text = "US map with average departure delay in minutes")
+
+```
+
+Data Table
+========================================
+
+```{r}
+
+datatable(data,
+          caption = "Delay Data",
+          rownames = T,
+          filter = "top",
+          options = list(pageLength = 25))
+```
+
+Carrier Comparision
+========================================
+
+```{r}
+
+data %>% group_by(UniqueCarrier) %>% 
+  summarise(Mean = mean(DepDelayMinutes,na.rm=TRUE)) %>% 
+  hchart(type = "column", hcaes(x=UniqueCarrier,y=Mean)) %>% 
+  hc_title(text = 'Mean Departure Delay per Carrier') %>% 
+  hc_yAxis(title=list(text='Average Departure Delay(mins)'))
+
+```
+
+Delay Cause Analysis
+=========================================
+
+```{r}
+
+c1 <- data %>% group_by(DayofMonth) %>% 
+  summarise(Count = sum(CarrierDelay, na.rm = TRUE))
+c2 <- data %>% group_by(DayofMonth) %>% 
+  summarise(Count = sum(WeatherDelay, na.rm = TRUE))
+c3 <- data %>% group_by(DayofMonth) %>% 
+  summarise(Count = sum(NASDelay, na.rm = TRUE))
+c4 <- data %>% group_by(DayofMonth) %>% 
+  summarise(Count = sum(SecurityDelay, na.rm = TRUE))
+c5 <- data %>% group_by(DayofMonth) %>% 
+  summarise(Count = sum(LateAircraftDelay, na.rm = TRUE))
+
+#Plotting multiple lines
+ggplot(c1,aes(DayofMonth)) +
+  geom_line(aes(y=c1$Count,colour = "Carrier Delay"))+
+  geom_line(aes(y=c2$Count,colour='Weather Delay'))+
+  geom_line(aes(y=c3$Count,colour='NAS Delay'))+
+  geom_line(aes(y=c4$Count,colour='Security Delay'))+
+  geom_line(aes(y=c5$Count,colour='Late Aircraft Delay')) +
+  scale_color_manual("",
+                     breaks = c("Carrier Delay","Weather Delay","NAS Delay","Security Delay","Late Aircraft Delay"),
+                     values = c("purple","blue","green","yellow","red")) +
+  ggtitle("Variation of Causes of Delay per day of month")+
+  scale_x_continuous("Day of Month") +
+  scale_y_continuous("Total delay in mins")  +
+  theme_bw()
+```
+
+Summary {data-orientation=columns}
+===========================================
+
+Column
+-----------------------------------
+
+### Average Departure Delays in the Month
+
+```{r}
+x1 <- data %>% group_by(FlightDate) %>% 
+  summarise(Mean = mean(DepDelayMinutes, na.rm=TRUE))
+valueBox(round(mean(x1$Mean), digits =2),
+         icon = "fa-user" )
+```
+
+### Average difference in estimated and actual flying time
+
+```{r}
+valueBox(round(mean(-data$AirTime + data$CRSElapsedTime, na.rm=TRUE),
+               digits = 2),
+         icon = "fa-area-chart")
+```
+
+### Average Arrival Delays in the Month
+
+```{r}
+x2 <- data %>% group_by(FlightDate) %>% 
+  summarise(Mean = mean(ArrDelayMinutes, na.rm=TRUE))
+valueBox(round(mean(x2$Mean), digits =2),
+         icon = "fa-user" )
+```
+
+Column
+---------------------------
+
+Report
+
+* This is a report on `r length(data$DepDelay)` airline delays.
+
+* Average difference in estimated and actual flying time was 25.59 minutes.
+
+* Average Departure Delays in the  Month was 10.5 minutes.
+
+* Average Arrival Delays in the  Month was 11.28 minutes.
+
+This report was generated on `r format(Sys.Date(), format = "%B %d, %Y")`.
+
+About Report
+========================================
+
+Created by: Pranav Vinod 
+
+Course: POM 681 - Business Analytics and Data Mining
+
+University: University of Massachusetts, Dartmouth
+
+Confidential: HIGHLY!
+
+
+
+
+
