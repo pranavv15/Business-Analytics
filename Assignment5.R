@@ -67,9 +67,46 @@ wordcloud(words = names(x),
 # Enhanced wordcloud
 library(wordcloud2)
 x <- data.frame(names(x),x)
+x <- x[-c(3), ]
 colnames(x) <- c('word','frequency')
 head(x)
 
 wordcloud2(x,
            size = 0.8,
-           shape = 'circle')
+           shape = 'triangle',
+           rotateRatio = 0.5,
+           minSize = 1)
+
+letterCloud(x,"GA")
+
+# Library not working properly
+# Used help from : https://github.com/Lchiffon/wordcloud2/issues/12
+library(devtools)
+devtools::install_github("lchiffon/wordcloud2")
+letterCloud(x,
+            word = "Google",
+            size = 2)
+
+# Sentiment Analysis
+library(syuzhet)
+library(lubridate)
+library(ggplot2)
+library(scales)
+library(reshape2)
+library(dplyr)
+
+# Save tweets
+tweets <- iconv(google$text, to = 'utf-8-mac')
+
+# Get Sentiment Scores
+google_scores <- get_nrc_sentiment(tweets)
+head(google_scores)
+# tweets[2]
+# get_nrc_sentiment('intelligence')
+
+# Bar Plot
+barplot(colSums(google_scores),
+        las = 2,
+        col = rainbow(10),
+        ylab = 'Count',
+        main = 'Sentiment Scores for Google Tweets')
