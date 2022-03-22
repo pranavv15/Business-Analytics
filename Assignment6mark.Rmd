@@ -1,10 +1,21 @@
-library(dplyr)
-library(pROC)
-library(ggplot2)
-library(ggExtra)
+---
+title: "Assignment 6"
+author: "Pranav Vinod"
+date: "3/21/2022"
+output: word_document
+---
 
+```{r}
+library(DAAG)
+library(datasets)
+library(ggplot2)
+library(dplyr)
+library(psych)
+library(caret)
+library(pROC)
+library(nnet)
 # Read the data
-data <- read.csv(file.choose(), header = F)
+data <- read.csv("/Users/pranavvinod/downloads/A6DATA.txt", header = F)
 data$V5 <- as.factor(data$V5)
 
 summary(data)         # 762 forged banknotes and 610 genuine banknotes
@@ -28,7 +39,7 @@ summary(m1)
 m1.best <- glm(formula = V5 ~.-V4, data = train, family = 'binomial')
 summary(m1.best)
 
-# Final equation :  p = 7.935 - 7.791*V1 - 4.040*V2 - 5.278*V3
+# Final equation :  log(p) = 8.094 - 8.616*V1 - 3.948*V2 - 5.217*V3
 
 # Confusion matrices 
 p1 <- predict(m1.best, train, type = 'response')
@@ -42,27 +53,26 @@ cm2 <- table(pred1, test$V5)     # for testing data
 cm2
 
 # Misclassification Error/Accuracy
-errorTrain <- (377+301)/(377+301+8)         # 98.8% - 1.2%
-errorTest <- (294+245)/(294+245+5+5)      # 98.1% -  1.9%
+errorTrain <- (377+301)/(377+301+8)         # 98.8% / 1.2%
+errorTest <- (377+302)/(377+301+7)      # 99.1% /  1.9%
 
 # Specificity, sensitivity and accuracy
 Spec1 <- cm1[1]/(cm1[1]+cm1[3])             # 0.989
 sens1 <- cm1[4]/(cm1[2]+cm1[4])             #0.986
     
-Spec2 <- cm2[1]/(cm2[1]+cm2[3])             # 0.983
-sens2 <- cm2[4]/(cm2[2]+cm2[4])             # 0.98
+Spec2 <- cm2[1]/(cm2[1]+cm2[3])             # 0.992
+sens2 <- cm2[4]/(cm2[2]+cm2[4])             # 0.986
 
 # ROC Curve
-r <- multiclass.roc(train$V5, p1, percent = TRUE)
-roc <- r[['rocs']]
-r1 <- roc[[1]]
-plot.roc(r1)
-r1
 
 r <- multiclass.roc(test$V5, p1, percent = TRUE)
 roc <- r[['rocs']]
 r1 <- roc[[1]]
-plot.roc(r1)
+plot.roc(r1,print.auc = T,
+         print.thres = T,
+         auc.polygon = T,
+         grid = c(0.1,0.2),
+         main = "ROC curve for 50:50 split")
 r1
 ##########################################################################################################
 
@@ -75,8 +85,8 @@ train <- data[indices,]
 test <- data[-indices,]
 
 # Data description
-summary(train)      # 397 forged banknotes and 289 genuine banknotes
-summary(test)       # 365 forged banknotes and 321 genuine banknotes
+summary(train)      # 463 forged banknotes and 360 genuine banknotes
+summary(test)       # 299 forged banknotes and 250 genuine banknotes
 
 # Create model for 60:40 split
 m2 <- glm(formula = V5 ~., data = train, family = 'binomial')
@@ -86,13 +96,14 @@ summary(m2)
 m2.best <- glm(formula = V5 ~.-V4, data = train, family = 'binomial')
 summary(m2.best)
 
-# Final equation :  p = 8.021 - 7.771*V1 - 4.055*V2 - 5.226*V3
+# Final equation :  p = 8.021 - 7.770*V1 - 4.055*V2 - 5.226*V3
 
 # Confusion matrices 
 p2 <- predict(m2.best, train, type = 'response')
 pred2 <- ifelse(p2>0.5,1,0)
 cm1 <- table(pred2, train$V5) # for training data
 cm1
+
 
 p2 <- predict(m2.best, test, type = 'response')
 pred2 <- ifelse(p2>0.5,1,0)
@@ -110,6 +121,18 @@ sens1 <- cm1[4]/(cm1[2]+cm1[4])             #0.994
 Spec2 <- cm2[1]/(cm2[1]+cm2[3])             # 0.98
 sens2 <- cm2[4]/(cm2[2]+cm2[4])             # 0.987
 
+r <- multiclass.roc(test$V5, p2, percent = TRUE)
+roc <- r[['rocs']]
+r2 <- roc[[1]]
+plot.roc(r2,print.auc = T,
+         print.thres = T,
+         auc.polygon = T,
+         grid = c(0.1,0.2),
+         main = "ROC curve for 60:40 split")
+r2
+
+
+
 #######################################################################################################
 
 # 70:30 split
@@ -120,8 +143,8 @@ train <- data[indices,]
 test <- data[-indices,]
 
 # Data description
-summary(train)      # 536 forged banknotes and 424 genuine banknotes
-summary(test)       # 226 forged banknotes and 186 genuine banknotes
+summary(train)      # 552 forged banknotes and 408 genuine banknotes
+summary(test)       # 210 forged banknotes and 202 genuine banknotes
 
 # Create model for 70:30 split
 m3 <- glm(formula = V5 ~., data = train, family = 'binomial')
@@ -131,7 +154,7 @@ summary(m3)
 m3.best <- glm(formula = V5 ~.-V4, data = train, family = 'binomial')
 summary(m3.best)
 
-# Final equation :  p = 7.755 - 8.605*V1 - 4.288*V2 - 5.439*V3
+# Final equation :  p = 13.152 - 13.198*V1 - 6.698*V2 - 8.758*V3
 
 # Confusion matrices 
 p3 <- predict(m3.best, train, type = 'response')
@@ -145,15 +168,25 @@ cm2 <- table(pred3, test$V5)     # for testing data
 cm2
 
 # Misclassification Error/Accuracy
-errorTrain <- (531+420)/(531+420+9)         # 99.0%
-errorTest <- (226+181)/(226+181+5)      # 98.7%
+errorTrain <- (550+406)/(550+406+4)         # 99.5%
+errorTest <- (207+196)/(207+196+9)      # 97.8%
 
 # Specificity, sensitivity and accuracy
-Spec1 <- cm1[1]/(cm1[1]+cm1[3])             # 0.992
-sens1 <- cm1[4]/(cm1[2]+cm1[4])             #0.988
+Spec1 <- cm1[1]/(cm1[1]+cm1[3])             # 0.996
+sens1 <- cm1[4]/(cm1[2]+cm1[4])             #0.995
 
-Spec2 <- cm2[1]/(cm2[1]+cm2[3])             # 0.978
-sens2 <- cm2[4]/(cm2[2]+cm2[4])             # 1
+Spec2 <- cm2[1]/(cm2[1]+cm2[3])             # 0.971
+sens2 <- cm2[4]/(cm2[2]+cm2[4])             # 0.984
+
+r <- multiclass.roc(test$V5, p3, percent = TRUE)
+roc <- r[['rocs']]
+r3 <- roc[[1]]
+plot.roc(r3,print.auc = T,
+         print.thres = T,
+         auc.polygon = T,
+         grid = c(0.1,0.2),
+         main = "ROC curve for 70:30 split")
+r3
 
 ##############################################################################################
 
@@ -165,8 +198,8 @@ train <- data[indices,]
 test <- data[-indices,]
 
 # Data description
-summary(train)      # 621 forged banknotes and 476 genuine banknotes
-summary(test)       # 141 forged banknotes and 134 genuine banknotes
+summary(train)      # 606 forged banknotes and 491 genuine banknotes
+summary(test)       # 156 forged banknotes and 119 genuine banknotes
 
 # Create model for 80:20 split
 m4 <- glm(formula = V5 ~., data = train, family = 'binomial')
@@ -176,7 +209,7 @@ summary(m4)
 m4.best <- glm(formula = V5 ~.-V4, data = train, family = 'binomial')
 summary(m4.best)
 
-# Final equation :  p = 9.671 - 9.164*V1 - 4.643*V2 - 6.147*V3
+# Final equation :  p = 7.438 - 7.52*V1 - 3.835*V2 - 4.90*V3
 
 # Confusion matrices 
 p4 <- predict(m4.best, train, type = 'response')
@@ -190,13 +223,29 @@ cm2 <- table(pred4, test$V5)     # for testing data
 cm2
 
 # Misclassification Error/Accuracy
-errorTrain <- (617+472)/(617+472+4)         # 99.6%
-errorTest <- (137+130)/(137+130+8)      # 97.0%
+errorTrain <- (602+486)/(602+486+9)         # 99.1%
+errorTest <- (155+117)/(155+117+3)      # 98.9%
 
 # Specificity, sensitivity and accuracy
-Spec1 <- cm1[1]/(cm1[1]+cm1[3])             # 0.993
+Spec1 <- cm1[1]/(cm1[1]+cm1[3])             # 0.991
 sens1 <- cm1[4]/(cm1[2]+cm1[4])             #0.991
 
-Spec2 <- cm2[1]/(cm2[1]+cm2[3])             # 0.971
-sens2 <- cm2[4]/(cm2[2]+cm2[4])             # 0.970
+Spec2 <- cm2[1]/(cm2[1]+cm2[3])             # 0.987
+sens2 <- cm2[4]/(cm2[2]+cm2[4])             # 0.991
+
+r <- multiclass.roc(test$V5, p4, percent = TRUE)
+roc <- r[['rocs']]
+r4 <- roc[[1]]
+plot.roc(r4,print.auc = T,
+         print.thres = T,
+         auc.polygon = T,
+         grid = c(0.1,0.2),
+         main = "ROC curve for 80:20 split")
+r4
+
+#########################################################################################################
+
+
+
+```
 
