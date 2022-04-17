@@ -33,7 +33,12 @@ corrplot(cor_mat, method='color')
 # It seems from the correleation plot that V3-V& are highly correleated and same for V8-V13
 # This has the potential to skew our analysis
 
-# 
+# Cor plot after scaling data
+
+data2 <- scale(data)
+cor_mat2 <- cor(data2)
+corrplot(cor_mat2, method='color')
+
 
 # Medical Condition Data
 
