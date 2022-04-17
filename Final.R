@@ -37,17 +37,21 @@ corrplot(cor_mat, method='color')
 
 # Medical Condition Data
 
-prepoc <- preProcess(data, method = c("center","scale"))
+# prepoc <- preProcess(data, method = c("center","scale"))
 
 mydata <- as.data.frame((data))
+mydata <- mydata[,c(1,2,3,7,13,14,15,16,17,18,21)]
 set.seed(1234) 
 ind <- sample(2, nrow(mydata), replace = T, prob = c(0.5, 0.5))
 train <- mydata[ind == 1,]
 test <- mydata[ind == 2,]
 
-y_train <- train$score
-x_train <- train[,-c(1)]
-x_train <- scale(x_train)
+# y_train <- train$score
+# x_train <- train[,-c(1)]
+# x_train <- scale(x_train)
+
+###############################################################################################
+
 # Regression
 
 # Simple Linear Regression
@@ -55,6 +59,10 @@ x_train <- scale(x_train)
 # Training
 mod <- lm(score~., data = train)
 summary(mod)
+
+# It seems like only V3,V4, V8, V14,V15,V16,V17,V18,V19 and V22 are significant
+# So keeping only those variable and running again
+
 
 # Testing
 test_reg <- predict(mod, test)
@@ -109,8 +117,8 @@ plot_features(explanation)
 
 # Boosting
 set.seed(1234)
-boo <- train(y_train ~ ., 
-             data=x_train,
+boo <- train(score ~ ., 
+             data=train,
              method="xgbTree", 
              trControl=cvcontrol,
              tuneGrid = expand.grid(nrounds = 5000,
