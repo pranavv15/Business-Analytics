@@ -3,7 +3,13 @@ library(corrplot)
 library(ggplot2)
 library(Amelia)
 library(randomForest)
+library(pROC)
 
+library(mlbench)
+library(caret)
+library(e1071)
+library(lime)
+library(corrplot)
 par(mfrow = c(1,1))
 # Reading the data
 data <- read.csv(file.choose(), header = T)
@@ -45,16 +51,19 @@ mydata <- as.data.frame((new))
 set.seed(1234) 
 ind <- sample(2, nrow(mydata), replace = T, prob = c(0.8, 0.2))
 train <- mydata[ind == 1,]
-test <- mydata[ind == 2,]
+test <- (mydata[ind == 2,])
+
+# Scale training data
+train2 <- as.data.frame(scale(train))
 
 # Simple Linear Regression
 
 # Training
-mod <- lm(score~., data = train)
+mod <- lm(score~., data = train2)
 summary(mod)
 
 # Testing
-test_reg <- predict(mod, test)
+test_reg <- predict(mod, test)*sd(train2$score) + mean(train2$score)
 plot(test_reg ~ test$score, main = 'Predicted Vs Actual Score - Test data')
 sqrt(mean((test$score - test_reg)^2))
 cor(test$score, test_reg) ^2
@@ -63,6 +72,10 @@ cor(test$score, test_reg) ^2
 
 # Boosting
 set.seed(1234)
+cvcontrol <- trainControl(method="repeatedcv", 
+                          number = 5,
+                          repeats = 2,
+                          allowParallel=TRUE)
 boo <- train(score ~ ., 
              data=train,
              method="xgbTree", 

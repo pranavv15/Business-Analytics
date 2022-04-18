@@ -141,6 +141,28 @@ plot(bo ~ test$score, main = 'Predicted Vs Actual MEDV - Test data')
 sqrt(mean((test$score - bo)^2))
 cor(test$score, bo) ^2
 
+##################################################################################################
+
+# neural network
+library(neuralnet)
+nntrain <- train
+nntest<- test
+
+
+nn <- neuralnet(score~., data=train, hidden = c(3,2),
+                linear.output = TRUE,
+                lifesign = "minimal")
+plot(nn)
+
+output <- compute(nn, test[,-1])
+
+# Compute mean squared error
+pr.nn_ <- output$net.result * (max(mydata$score) - min(mydata$score)) + min(mydata$score)
+test.r <- (test$score) * (max(mydata$score) - min(mydata$score)) + min(mydata$score)
+MSE.nn <- sum((test.r - pr.nn_)^2) / nrow(test)
+
+plot(test$score, pr.nn_, col = "red", main = 'Real vs Predicted')
+abline(0, 1, lwd = 2)
 
 # Test data from website
 test_final <- read.csv(file.choose(), header = T)
