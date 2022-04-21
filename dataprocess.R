@@ -130,7 +130,7 @@ for(m in 1:p) {
 matplot(1:p, cbind(oob.error, test.error), pch=19, col=c("red", "blue"), type="b", ylab="Mean Squared Error" , xlab = "Number of Features")
 legend("bottomright", c('OOB', 'Test') ,col=seq_len(2),cex=0.8,fill=c("red",  "blue"))
 
-rf.reg <- randomForest(score~., data=train, mtry=19, importance=TRUE, xtest=test[,-c(1)], ytest=test$score)
+rf.reg <- randomForest(score~., data=train, mtry=8, importance=TRUE, xtest=test[,-c(1)], ytest=test$score)
 
 rf.train.mse <- min(rf.reg$mse)
 rf.train.mse
@@ -158,6 +158,20 @@ explanation <- explain( x = test[1:3,],
 plot_features(explanation)
 
 ###############################################################################################
+# Proper Boosting
+library(gbm)
+cor <- cor(train)
+corrplot(cor)
+reg.boost = gbm(score ~ ., data = train, n.trees = 50000, distribution = "gaussian", shrinkage = 0.001)
+summary(reg.boost)
+
+train.mse <- min(reg.boost$train.error)
+train.mse
+
+test.mse <- mean((test$score - predict(reg.boost, test[,-1]))^2)
+test.mse
+
+################################################################################################
 maxs <- apply(train, 2, max) 
 mins <- apply(train, 2, min)
 train <- as.data.frame(scale(train, center = mins, 
