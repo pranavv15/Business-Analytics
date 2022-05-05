@@ -65,7 +65,7 @@ mean(train$score)
 test <- (mydata[ind == 2,])
 mean(test$score)
 # Scale training data
-train2 <- as.data.frame(scale(train))
+train2 <- as.data.frame((train))
 
 # Simple Linear Regression
 # Training
@@ -110,7 +110,7 @@ cor(test$score, bo) ^2
 ##################################################################################################
 
 # Random Forest
-rf.reg <- randomForest(score~., data=train, mtry=round(sqrt(ncol(train) - 1)), importance=TRUE, xtest=test[,-c(1)], ytest=test$score)
+rf.reg <- randomForest(score~V12+V14+V15+V17+V18, data=train2, mtry=round(sqrt(ncol(train2) - 1)), importance=TRUE, xtest=test[,c(12,14,15,17,18)], ytest=test$score)
 importance(rf.reg)
 
 varImpPlot(rf.reg, cex=0.5)
@@ -162,7 +162,7 @@ plot_features(explanation)
 library(gbm)
 cor <- cor(train)
 corrplot(cor)
-reg.boost = gbm(score ~ ., data = train, n.trees = 50000, distribution = "gaussian", shrinkage = 0.001)
+reg.boost = gbm(score ~ V12+V14+V15+V17+V18, data = train, n.trees = 50000, distribution = "gaussian", shrinkage = 0.001)
 summary(reg.boost)
 
 train.mse <- min(reg.boost$train.error)
@@ -172,6 +172,8 @@ test.mse <- mean((test$score - predict(reg.boost, test[,-1]))^2)
 test.mse
 
 ################################################################################################
+# Neural Network
+
 maxs <- apply(train, 2, max) 
 mins <- apply(train, 2, min)
 train <- as.data.frame(scale(train, center = mins, 
@@ -182,13 +184,13 @@ mins <- apply(test, 2, min)
 test <- as.data.frame(scale(test, center = mins, 
                               scale = maxs - mins))
 
-nn <- neuralnet(score~., data=train, hidden = c(2,1),
+nn <- neuralnet(score~V12+V14+V15+V17+V18, data=train[,c(2,12,14,15,17,18)], hidden = c(5,3),
                 linear.output = TRUE,
                 lifesign = "minimal",
                 rep = 3)
 plot(nn)
 
-output <- compute(nn, test[,-1])
+output <- compute(nn, test[,c(12,14,15,17,18)])
 
 # Compute mean squared error
 pr.nn_ <- output$net.result * (max(mydata$score) - min(mydata$score)) + min(mydata$score)

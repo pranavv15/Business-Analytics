@@ -1,26 +1,20 @@
 library(dplyr)
 library(pROC)
-
-# Read data
-data <- read.csv(file.choose(), header = T)
-data <- data[,-c(1)]
-
-
-# Regression
-
 library(mlbench)
 library(caret)
 library(e1071)
 library(lime)
 library(corrplot)
 
+# Read data
+data <- read.csv(file.choose(), header = T)
+
 # Descriptive data analysis
 
 summary(data)
-plot(data)
 
 # Pair Plot of data with score
-pairs(~score+V3+V4+V5+V6+V7, data=data)
+pairs(~score+Id+V3+V4+V5+V6+V7, data=data)
 pairs(~score+V8+V9+V10+V11+V12, data=data)
 pairs(~score+V13+V14+V15+V16+V17, data=data)
 pairs(~score+V18+V19+V20+V21+V22, data=data)
@@ -30,30 +24,29 @@ pairs(~score+V23+V24+V25+V26+V27+V28+V29, data=data)
 cor_mat <- cor(data)
 corrplot(cor_mat, method='color')
 
-# It seems from the correleation plot that V3-V& are highly correleated and same for V8-V13
+# It seems from the correlation plot that V3-V& are highly correlated and same for V8-V13
 # This has the potential to skew our analysis
 
-# Cor plot after scaling data
+data <- data[,c(1,2,3,13,14,15,16,17,18,21)]
 
-data2 <- scale(data)
-cor_mat2 <- cor(data2)
-corrplot(cor_mat2, method='color')
-
+# Correlation Plot of Data
+cor_mat <- cor(mydata2)
+corrplot(cor_mat, method='color')
 
 # Medical Condition Data
-
-# prepoc <- preProcess(data, method = c("center","scale"))
-
-mydata <- as.data.frame((data))
-mydata <- mydata[,c(1,2,3,7,13,14,15,16,17,18,21)]
+data2 <- data[,-c(1)]
+mydata <- as.data.frame((data2))
 set.seed(1234) 
-ind <- sample(2, nrow(mydata), replace = T, prob = c(0.5, 0.5))
+ind <- sample(2, nrow(mydata), replace = T, prob = c(0.8, 0.2))
 train <- mydata[ind == 1,]
 test <- mydata[ind == 2,]
 
-# y_train <- train$score
-# x_train <- train[,-c(1)]
-# x_train <- scale(x_train)
+# Keeping ID column
+mydata2 <- data
+set.seed(1234) 
+ind <- sample(2, nrow(mydata2), replace = T, prob = c(0.8, 0.2))
+train <- mydata2[ind == 1,]
+test <- mydata2[ind == 2,]
 
 ###############################################################################################
 
@@ -62,12 +55,8 @@ test <- mydata[ind == 2,]
 # Simple Linear Regression
 
 # Training
-mod <- lm(score~., data = train)
+mod <- lm(score~Id, data = train2)
 summary(mod)
-
-# It seems like only V3,V4, V8, V14,V15,V16,V17,V18,V19 and V22 are significant
-# So keeping only those variable and running again
-
 
 # Testing
 test_reg <- predict(mod, test)
@@ -75,35 +64,34 @@ plot(test_reg ~ test$score, main = 'Predicted Vs Actual Score - Test data')
 sqrt(mean((test$score - test_reg)^2))
 cor(test$score, test_reg) ^2
 
-
-
-
-# Bagging
-set.seed(1234)
-cvcontrol <- trainControl(method="repeatedcv", 
-                          number = 5,
-                          repeats = 2,
-                          allowParallel=TRUE)
-set.seed(1234)
-bag <- train(score ~ ., 
-             data=train,
-             method="treebag",
-             trControl=cvcontrol,
-             importance=TRUE)
-plot(varImp(bag))
-
-# Plot, RMSE, R-square
-ba <- predict(bag,  test)
-plot(ba ~ test$score, main = 'Predicted Vs Actual Score - Test data')
-sqrt(mean((test$score - ba)^2))
-cor(test$score, ba) ^2
+#######################################################################################
 
 # RF
 set.seed(1234)
-forest <- train(score ~ ., 
-                data=train,
+# train <- train[,-c(3,10)]
+cor_mat <- cor(train_sig)
+corrplot(cor_mat, method='color')
+
+
+cv <- trainControl(method="adaptive_cv", 
+                   number = 3, 
+                   repeats = 2,
+                   adaptive = list(min=2,
+                                   alpha=0.03,
+                                   method='gls',
+                                   complete=T),
+                   allowParallel = T,
+                   verboseIter = T,
+                   returnData = F,
+                   search = 'random') 
+
+# Dropping least important variable
+train2 <- train[,-c(10)]
+
+forest <- train(score ~ Id, 
+                data=train2,
                 method="rf",
-                trControl=cvcontrol,
+                trControl=cv,
                 importance=TRUE)
 plot(varImp(forest))
 
@@ -120,60 +108,101 @@ explanation <- explain( x = test[1:3,],
                         n_features = 5)
 plot_features(explanation)
 
-# Boosting
-set.seed(1234)
-boo <- train(score ~ ., 
-             data=train,
-             method="xgbTree", 
-             trControl=cvcontrol,
-             tuneGrid = expand.grid(nrounds = 5000,
-                                    max_depth = 7,
-                                    eta = 0.15,
-                                    gamma = 2.1,
-                                    colsample_bytree = 1,
-                                    min_child_weight = 1,
-                                    subsample = 1))
+##################################################################################################
+
+# XGBoost Adaptive search
+library(xgboost) 
+library(caret)
+library(tictoc)
+
+modelLookup("xgbTree")
+set.seed(1234) 
+cv <- trainControl(method="adaptive_cv", 
+                   number = 3, 
+                   repeats = 2,
+                   adaptive = list(min=2,
+                                   alpha=0.03,
+                                   method='gls',
+                                   complete=T),
+                   allowParallel = T,
+                   verboseIter = T,
+                   returnData = F,
+                   search = 'random') 
+set.seed(1234) 
+boo <- train(score ~ Id, 
+             data = train,  
+             trControl = cv,
+             method = "xgbTree",
+             tuneLength = 500) 
+
 plot(varImp(boo))
 
 # Plot, RMSE, R-square
-bo <-  predict(boo,  test)
-plot(bo ~ test$score, main = 'Predicted Vs Actual MEDV - Test data')
+bo <-  predict(boo,test)
+plot(bo ~ test$score, main = 'Predicted Vs Actual Score - Test data')
 sqrt(mean((test$score - bo)^2))
-cor(test$score, bo) ^2
-
-##################################################################################################
-
-# neural network
-library(neuralnet)
-nntrain <- train
-nntest<- test
 
 
-nn <- neuralnet(score~., data=train, hidden = c(3,2),
-                linear.output = TRUE,
-                lifesign = "minimal")
-plot(nn)
+#########################################################################################
 
-output <- compute(nn, test[,-1])
+# XGBoost Adaptive search - Fine tuning
+library(xgboost) 
+library(caret)
+library(tictoc)
 
-# Compute mean squared error
-pr.nn_ <- output$net.result * (max(mydata$score) - min(mydata$score)) + min(mydata$score)
-test.r <- (test$score) * (max(mydata$score) - min(mydata$score)) + min(mydata$score)
-MSE.nn <- sum((test.r - pr.nn_)^2) / nrow(test)
+modelLookup("xgbTree")
+set.seed(1234) 
+cv <- trainControl(method="adaptive_cv", 
+                   number = 3, 
+                   repeats = 2,
+                   adaptive = list(min=2,
+                                   alpha=0.03,
+                                   method='gls',
+                                   complete=T),
+                   allowParallel = T,
+                   verboseIter = T,
+                   returnData = F)
 
-plot(test$score, pr.nn_, col = "red", main = 'Real vs Predicted')
-abline(0, 1, lwd = 2)
+g <- expand.grid(nrounds = seq(from = 650, to=850, by=5),
+                 max_depth = 10,
+                 eta = seq(from = 0.130, to=0.140, by=0.001),
+                 gamma = 3.59,
+                 colsample_bytree = 0.408,
+                 min_child_weight = 6,
+                 subsample = 0.519)
+set.seed(1234) 
+boo <- train(score ~Id, 
+             data = train,  
+             trControl = cv,
+             method = "xgbTree",
+             tuneGrid = g) 
 
+plot(varImp(boo))
+
+# Plot, RMSE, R-square
+bo <-  predict(boo,test)
+plot(bo ~ test$score, main = 'Predicted Vs Actual Score - Test data')
+sqrt(mean((test$score - bo)^2))
+cor(test$score, rf) ^2
+
+#########################################################################################
+
+# The code was repeated for the three different variations on the dataset. 
+# Only thing changed was the formula and the training and testing data.
+
+#########################################################################################
 # Test data from website
 test_final <- read.csv(file.choose(), header = T)
-scaled_new <- predict(prepoc,newdata = test_final)
 
-# Predictions from boosted tree
-# Plot, RMSE, R-square
-bo <-  predict(boo,  test_final[,-c(1)])
+# After removing correlated variables
+test_final_sig <- test_final[,c(1,2,3,12,13,14,15,16,17,20)]
+
+# Making Predictions
+bo <-  predict(boo,  test_final_sig)
 
 submission <- data.frame(test_final$Id, bo)
 colnames(submission) <- c('Id', 'Expected')
 
 setwd("~/Desktop")
 write.csv(submission, "submission.csv",row.names = F)
+
